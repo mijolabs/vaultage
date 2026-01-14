@@ -1,6 +1,3 @@
-/*
-Copyright © 2026 Michael Johansson <mijolabs@remotenode.io>
-*/
 package cmd
 
 import (
