@@ -1,17 +1,20 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/mijolabs/vaultage/cmd"
-	"github.com/spf13/viper"
 )
 
 func main() {
-	cfg := viper.New()
-	cfg.AutomaticEnv()
+	ctx, cancel := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
-	rootCmd := cmd.RootCmd(cfg)
+	rootCmd := cmd.RootCmd(ctx)
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
