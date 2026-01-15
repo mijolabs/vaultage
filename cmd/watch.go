@@ -1,64 +1,72 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+
+	"github.com/mijolabs/vaultage/backup"
+	"github.com/mijolabs/vaultage/watcher"
 )
 
-const WalFileName = "db.sqlite3-wal"
-
-func Watch(cfg *viper.Viper) *cobra.Command {
+// Watch creates a Cobra command that monitors the Vaultwarden data directory
+// for database changes and triggers encrypted backups using Age encryption.
+func Watch(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "watch [data dir]",
 		Short: "Watch for changes and perform backups",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			// Require data dir path
 			if len(args) < 1 {
-				return fmt.Errorf("missing path to vaultwarden data directory\n")
+				return fmt.Errorf("missing path to vaultwarden data directory")
 			}
 			dataDir := strings.TrimSuffix(args[0], "/")
-			cfg.Set("data_dir", dataDir)
 
 			// Validate data dir path
-			if info, err := os.Stat(dataDir); err != nil {
-				if errors.Is(err, os.ErrNotExist) || !info.IsDir() {
-					return fmt.Errorf("invalid data dir `%s`\n", dataDir)
+			info, err := os.Stat(dataDir)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("data directory does not exist: %s", dataDir)
 				}
-				return fmt.Errorf("%s", err.Error())
+				return fmt.Errorf("checking data directory: %w", err)
 			}
+			if !info.IsDir() {
+				return fmt.Errorf("path is not a directory: %s", dataDir)
+			}
+
+			// Get flag values
+			debounce, _ := cmd.Flags().GetDuration("debounce")
+			excludeAttachments, _ := cmd.Flags().GetBool("exclude-attachments")
+			excludeConfigFile, _ := cmd.Flags().GetBool("exclude-config-file")
+			agePassphrase, _ := cmd.Flags().GetString("age-passphrase")
+			ageKeyFile, _ := cmd.Flags().GetString("age-key-file")
 
 			// Validate required age options
-			age_passphrase := cfg.GetString("age_passphrase")
-			age_key_file := cfg.GetString("age_key_file")
-			if age_passphrase == "" && age_key_file == "" {
-				return fmt.Errorf(
-					"either `age-passphrase` or `age-key-file` must be provided\n",
-				)
+			if agePassphrase == "" && ageKeyFile == "" {
+				return fmt.Errorf("either --age-passphrase or --age-key-file must be provided")
 			}
 			// Validate mutually exclusive age options
-			if age_passphrase != "" && age_key_file != "" {
-				return fmt.Errorf(
-					"`age-passphrase` and `age-key-file` are mutually exclusive\n",
-				)
+			if agePassphrase != "" && ageKeyFile != "" {
+				return fmt.Errorf("--age-passphrase and --age-key-file are mutually exclusive")
 			}
 
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			err := watchDataDir(cfg)
-			if err != nil {
-				cobra.CheckErr(err)
+			cfg := watcher.Config{
+				Config: backup.Config{
+					DataDir:            dataDir,
+					ExcludeAttachments: excludeAttachments,
+					ExcludeConfigFile:  excludeConfigFile,
+					AgePassphrase:      agePassphrase,
+					AgeKeyFile:         ageKeyFile,
+				},
+				Debounce: debounce,
 			}
-			return nil
+
+			return watcher.Watch(ctx, cfg)
 		},
 	}
 
@@ -79,89 +87,14 @@ func Watch(cfg *viper.Viper) *cobra.Command {
 	)
 	cmd.Flags().String(
 		"age-passphrase",
-		"",
+		os.Getenv("AGE_PASSPHRASE"),
 		"age passphrase for backup encryption",
 	)
 	cmd.Flags().String(
 		"age-key-file",
-		"",
+		os.Getenv("AGE_KEY_FILE"),
 		"age key file for backup encryption",
 	)
 
-	// Replace dashes in flags with underscores to match env vars
-	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
-		return pflag.NormalizedName(strings.ReplaceAll(name, "-", "_"))
-	})
-
-	err := cfg.BindPFlags(cmd.Flags())
-	if err != nil {
-		cobra.CheckErr(err)
-	}
-
-	// fmt.Println(cfg.AllSettings())
-
 	return cmd
-}
-
-func watchDataDir(cfg *viper.Viper) error {
-	walFilePath := cfg.GetString("data_dir") + "/" + WalFileName
-	log.Printf("👀 watching %s (debounce: %s)\n", walFilePath, cfg.GetString("debounce"))
-	log.Printf("📦 exclude attachments: %t\n", cfg.GetBool("exclude_attachments"))
-
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatalf("cannot create fsnotify watcher: %v", err)
-	}
-	defer watcher.Close()
-
-	go watcherLoop(watcher, cfg)
-
-	err = watcher.Add(cfg.GetString("data_dir"))
-	if err != nil {
-		log.Fatalf("cannot watch data directory: %v", err)
-	}
-
-	select {}
-}
-
-func watcherLoop(watcher *fsnotify.Watcher, cfg *viper.Viper) {
-	walFilePath := cfg.GetString("data_dir") + "/" + WalFileName
-
-	var debounceTimer *time.Timer
-	for {
-		select {
-		case err, ok := <-watcher.Errors:
-			if !ok { // Channel closed
-				if debounceTimer != nil {
-					debounceTimer.Stop()
-				}
-				return
-			}
-			log.Printf("Watcher error: %v", err)
-		case event, ok := <-watcher.Events:
-			if !ok { // Channel closed
-				if debounceTimer != nil {
-					debounceTimer.Stop()
-				}
-				return
-			}
-			if event.Name != walFilePath {
-				continue
-			}
-			if event.Op&(fsnotify.Write|fsnotify.Create) == 0 {
-				continue
-			}
-
-			if debounceTimer != nil {
-				debounceTimer.Stop()
-			}
-			debounceTimer = time.AfterFunc(cfg.GetDuration("debounce"), func() {
-				if err := performBackup(cfg); err != nil {
-					log.Printf("Backup error: %v", err)
-					return
-				}
-			})
-			log.Printf("Detected change in WAL file: %s (%s) — backup scheduled in %s", event.Name, event.Op.String(), cfg.GetDuration("debounce"))
-		}
-	}
 }
