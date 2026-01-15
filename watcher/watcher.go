@@ -41,9 +41,16 @@ func Watch(ctx context.Context, cfg Config) error {
 	return runLoop(ctx, watcher, walFilePath, cfg.Debounce, backupFn)
 }
 
+// logCooldown suppresses repeated log messages within this duration.
+// SQLite WAL operations often trigger multiple fsnotify events in rapid
+// succession (2-3 events within milliseconds). This cooldown prevents
+// noisy logs while still resetting the debounce timer for each event.
+const logCooldown = time.Second
+
 // runLoop processes file system events and triggers backups after debounce.
 func runLoop(ctx context.Context, watcher *fsnotify.Watcher, walFilePath string, debounce time.Duration, backupFn func() error) error {
 	var debounceTimer *time.Timer
+	var lastLogTime time.Time
 
 	for {
 		select {
@@ -86,7 +93,11 @@ func runLoop(ctx context.Context, watcher *fsnotify.Watcher, walFilePath string,
 					log.Printf("backup error: %v", err)
 				}
 			})
-			log.Printf("detected change in WAL file: %s (%s) - backup scheduled in %s", event.Name, event.Op.String(), debounce)
+
+			if time.Since(lastLogTime) >= logCooldown {
+				log.Printf("detected change in WAL file: %s (%s) - backup scheduled in %s", event.Name, event.Op.String(), debounce)
+				lastLogTime = time.Now()
+			}
 		}
 	}
 }
