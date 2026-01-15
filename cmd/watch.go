@@ -14,6 +14,14 @@ import (
 	"github.com/mijolabs/vaultage/watcher"
 )
 
+// envOrDefault returns the value of the environment variable or the default.
+func envOrDefault(key, defaultVal string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+	return defaultVal
+}
+
 // Watch creates a Cobra command that monitors the Vaultwarden data directory
 // for database changes and triggers encrypted backups using Age encryption.
 func Watch(ctx context.Context) *cobra.Command {
@@ -41,15 +49,16 @@ func Watch(ctx context.Context) *cobra.Command {
 
 			// Get flag values
 			debounce, _ := cmd.Flags().GetDuration("debounce")
+			outputDir, _ := cmd.Flags().GetString("output-dir")
 			excludeAttachments, _ := cmd.Flags().GetBool("exclude-attachments")
 			excludeConfigFile, _ := cmd.Flags().GetBool("exclude-config-file")
 			agePassphrase, _ := cmd.Flags().GetString("age-passphrase")
 			ageKeyFile, _ := cmd.Flags().GetString("age-key-file")
 
-			// Validate required age options
-			if agePassphrase == "" && ageKeyFile == "" {
-				return fmt.Errorf("either --age-passphrase or --age-key-file must be provided")
-			}
+			// Validate required age options (temporarily disabled until age encryption is implemented)
+			// if agePassphrase == "" && ageKeyFile == "" {
+			// 	return fmt.Errorf("either --age-passphrase or --age-key-file must be provided")
+			// }
 			// Validate mutually exclusive age options
 			if agePassphrase != "" && ageKeyFile != "" {
 				return fmt.Errorf("--age-passphrase and --age-key-file are mutually exclusive")
@@ -58,6 +67,7 @@ func Watch(ctx context.Context) *cobra.Command {
 			cfg := watcher.Config{
 				Config: backup.Config{
 					DataDir:            dataDir,
+					OutputDir:          outputDir,
 					ExcludeAttachments: excludeAttachments,
 					ExcludeConfigFile:  excludeConfigFile,
 					AgePassphrase:      agePassphrase,
@@ -74,6 +84,11 @@ func Watch(ctx context.Context) *cobra.Command {
 		"debounce",
 		10*time.Minute,
 		"trailing quiet period before backup is performed",
+	)
+	cmd.Flags().String(
+		"output-dir",
+		envOrDefault("OUTPUT_DIR", "."),
+		"directory for backup files",
 	)
 	cmd.Flags().Bool(
 		"exclude-attachments",
