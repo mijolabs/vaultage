@@ -5,51 +5,85 @@ import (
 	"database/sql"
 	"fmt"
 
-	_ "modernc.org/sqlite"
+	"modernc.org/sqlite"
 )
 
+// sqliteConn defines the modernc.org/sqlite driver connection methods we need
+// for performing safe database backups using the SQLite Online Backup API.
+type sqliteConn interface {
+	// NewRestore creates a backup that copies from srcPath into this connection.
+	NewRestore(srcPath string) (*sqlite.Backup, error)
+	// Serialize returns the database contents as a byte slice.
+	Serialize() ([]byte, error)
+}
+
 // BackupToMemory performs a safe SQLite backup of the database at dbPath
-// to an in-memory byte slice using the SQLite serialization API.
-// This ensures a consistent snapshot even if the database is in WAL mode
-// and actively being written to by another process.
+// using the SQLite Online Backup API. This is the officially recommended
+// method for backing up a live SQLite database.
+//
+// The backup process:
+//  1. Opens an in-memory database as the destination
+//  2. Uses sqlite3_backup to copy all pages from the source database
+//  3. Serializes the in-memory database to a byte slice
+//
+// This approach safely handles WAL mode databases and provides a consistent
+// snapshot even if the source database is actively being written to.
 func BackupToMemory(dbPath string) ([]byte, error) {
-	// Open source database in read-only mode
-	db, err := sql.Open("sqlite", dbPath+"?mode=ro")
+	// Open in-memory database as the backup destination
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
-		return nil, fmt.Errorf("opening database: %w", err)
+		return nil, fmt.Errorf("opening memory database: %w", err)
 	}
 	defer db.Close()
 
-	// Verify connection works
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("connecting to database: %w", err)
-	}
-
-	// Get a dedicated connection for serialization
+	// Get a dedicated connection for the backup operation
 	conn, err := db.Conn(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("acquiring connection: %w", err)
 	}
 	defer conn.Close()
 
-	// Serialize the database to a byte slice using the driver's
-	// Serialize method, which captures a consistent snapshot
 	var data []byte
 	err = conn.Raw(func(dc any) error {
-		serializer, ok := dc.(interface {
-			Serialize() ([]byte, error)
-		})
+		c, ok := dc.(sqliteConn)
 		if !ok {
-			return fmt.Errorf("sqlite driver does not support Serialize")
+			return fmt.Errorf("unexpected driver type: %T (expected modernc.org/sqlite)", dc)
 		}
 
-		var serErr error
-		data, serErr = serializer.Serialize()
-		return serErr
+		// NewRestore copies FROM the source path INTO this connection
+		backup, err := c.NewRestore(dbPath)
+		if err != nil {
+			return fmt.Errorf("initializing backup: %w", err)
+		}
+
+		// Copy all pages in one step (-1 means copy everything)
+		// This is safe for small databases; for very large databases,
+		// you could use positive values to copy incrementally.
+		done, err := backup.Step(-1)
+		if err != nil {
+			backup.Finish()
+			return fmt.Errorf("backup step: %w", err)
+		}
+		if done {
+			// Step returned true before we expected - shouldn't happen with -1
+			// but handle gracefully
+		}
+
+		if err := backup.Finish(); err != nil {
+			return fmt.Errorf("finishing backup: %w", err)
+		}
+
+		// Serialize the in-memory database to bytes
+		data, err = c.Serialize()
+		if err != nil {
+			return fmt.Errorf("serializing backup: %w", err)
+		}
+
+		return nil
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("serializing database: %w", err)
+		return nil, err
 	}
 
 	return data, nil
