@@ -1,0 +1,23 @@
+services:
+  vaultage:
+    image: ghcr.io/mijolabs/vaultage:latest
+    environment:
+      VAULTAGE_DATA_DIR: /data
+      VAULTAGE_OUTPUT_DIR: /backups
+      VAULTAGE_DEBOUNCE: 10m
+      # VAULTAGE_EXCLUDE_ATTACHMENTS: false
+      # VAULTAGE_EXCLUDE_CONFIG_FILE: false
+      # VAULTAGE_AGE_PASSPHRASE: ${AGE_PASSPHRASE}  # Uncomment to enable encryption
+      # VAULTAGE_AGE_KEY_FILE: /keys/age.key        # Or use key file instead
+    volumes:
+      # Mount Vaultwarden data directory (read-only for safety)
+      - vaultwarden-data:/data:ro
+      # Mount backup output directory
+      - ./backups:/backups
+      # Mount Age key file if using key-based encryption
+      # - ./age.key:/keys/age.key:ro
+    restart: unless-stopped
+
+volumes:
+  vaultwarden-data:
+    external: true  # Reference your existing Vaultwarden volume

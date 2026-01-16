@@ -14,26 +14,81 @@ import (
 	"github.com/mijolabs/vaultage/watcher"
 )
 
-// envOrDefault returns the value of the environment variable or the default.
-func envOrDefault(key, defaultVal string) string {
+// Environment variable names
+const (
+	envDataDir            = "VAULTAGE_DATA_DIR"
+	envOutputDir          = "VAULTAGE_OUTPUT_DIR"
+	envDebounce           = "VAULTAGE_DEBOUNCE"
+	envExcludeAttachments = "VAULTAGE_EXCLUDE_ATTACHMENTS"
+	envExcludeConfigFile  = "VAULTAGE_EXCLUDE_CONFIG_FILE"
+	envAgePassphrase      = "VAULTAGE_AGE_PASSPHRASE"
+	envAgeKeyFile         = "VAULTAGE_AGE_KEY_FILE"
+)
+
+// Default values
+const (
+	defaultOutputDir = "."
+	defaultDebounce  = 10 * time.Minute
+)
+
+// getEnv returns the value of the environment variable or the default.
+func getEnv(key, defaultVal string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
 	}
 	return defaultVal
 }
 
+// getEnvBool returns the boolean value of the environment variable or the default.
+func getEnvBool(key string, defaultVal bool) bool {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+	// Treat "true", "1", "yes" as true (case-insensitive)
+	val = strings.ToLower(val)
+	return val == "true" || val == "1" || val == "yes"
+}
+
+// getEnvDuration returns the duration value of the environment variable or the default.
+func getEnvDuration(key string, defaultVal time.Duration) time.Duration {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+	d, err := time.ParseDuration(val)
+	if err != nil {
+		return defaultVal
+	}
+	return d
+}
+
 // Watch creates a Cobra command that monitors the Vaultwarden data directory
 // for database changes and triggers encrypted backups using Age encryption.
 func Watch(ctx context.Context) *cobra.Command {
+	var (
+		dataDir            string
+		outputDir          string
+		debounce           time.Duration
+		excludeAttachments bool
+		excludeConfigFile  bool
+		agePassphrase      string
+		ageKeyFile         string
+	)
+
 	cmd := &cobra.Command{
-		Use:   "watch [data dir]",
+		Use:   "watch",
 		Short: "Watch for changes and perform backups",
+		Long: `Watch monitors the Vaultwarden data directory for database changes
+and creates encrypted backups after a configurable debounce period.
+
+All flags can also be set via environment variables with the VAULTAGE_ prefix.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Require data dir path
-			if len(args) < 1 {
-				return fmt.Errorf("missing path to vaultwarden data directory")
+			// Validate required data dir
+			if dataDir == "" {
+				return fmt.Errorf("data directory is required (use --data-dir or %s)", envDataDir)
 			}
-			dataDir := strings.TrimSuffix(args[0], "/")
+			dataDir = strings.TrimSuffix(dataDir, "/")
 
 			// Validate data dir path
 			info, err := os.Stat(dataDir)
@@ -47,18 +102,6 @@ func Watch(ctx context.Context) *cobra.Command {
 				return fmt.Errorf("path is not a directory: %s", dataDir)
 			}
 
-			// Get flag values
-			debounce, _ := cmd.Flags().GetDuration("debounce")
-			outputDir, _ := cmd.Flags().GetString("output-dir")
-			excludeAttachments, _ := cmd.Flags().GetBool("exclude-attachments")
-			excludeConfigFile, _ := cmd.Flags().GetBool("exclude-config-file")
-			agePassphrase, _ := cmd.Flags().GetString("age-passphrase")
-			ageKeyFile, _ := cmd.Flags().GetString("age-key-file")
-
-			// Validate required age options (temporarily disabled until age encryption is implemented)
-			// if agePassphrase == "" && ageKeyFile == "" {
-			// 	return fmt.Errorf("either --age-passphrase or --age-key-file must be provided")
-			// }
 			// Validate mutually exclusive age options
 			if agePassphrase != "" && ageKeyFile != "" {
 				return fmt.Errorf("--age-passphrase and --age-key-file are mutually exclusive")
@@ -80,35 +123,47 @@ func Watch(ctx context.Context) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Duration(
-		"debounce",
-		10*time.Minute,
-		"trailing quiet period before backup is performed",
+	cmd.Flags().StringVar(
+		&dataDir,
+		"data-dir",
+		os.Getenv(envDataDir),
+		"path to Vaultwarden data directory",
 	)
-	cmd.Flags().String(
+	cmd.Flags().StringVar(
+		&outputDir,
 		"output-dir",
-		envOrDefault("OUTPUT_DIR", "."),
+		getEnv(envOutputDir, defaultOutputDir),
 		"directory for backup files",
 	)
-	cmd.Flags().Bool(
+	cmd.Flags().DurationVar(
+		&debounce,
+		"debounce",
+		getEnvDuration(envDebounce, defaultDebounce),
+		"quiet period before backup is performed",
+	)
+	cmd.Flags().BoolVar(
+		&excludeAttachments,
 		"exclude-attachments",
-		false,
-		"exclude attachments in backup archive",
+		getEnvBool(envExcludeAttachments, false),
+		"exclude attachments from backup archive",
 	)
-	cmd.Flags().Bool(
+	cmd.Flags().BoolVar(
+		&excludeConfigFile,
 		"exclude-config-file",
-		false,
-		"exclude config.json in backup archive",
+		getEnvBool(envExcludeConfigFile, false),
+		"exclude config.json from backup archive",
 	)
-	cmd.Flags().String(
+	cmd.Flags().StringVar(
+		&agePassphrase,
 		"age-passphrase",
-		os.Getenv("AGE_PASSPHRASE"),
-		"age passphrase for backup encryption",
+		os.Getenv(envAgePassphrase),
+		"passphrase for Age encryption",
 	)
-	cmd.Flags().String(
+	cmd.Flags().StringVar(
+		&ageKeyFile,
 		"age-key-file",
-		os.Getenv("AGE_KEY_FILE"),
-		"age key file for backup encryption",
+		os.Getenv(envAgeKeyFile),
+		"path to Age key file for encryption",
 	)
 
 	return cmd
