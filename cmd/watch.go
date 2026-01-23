@@ -14,7 +14,7 @@ import (
 	"github.com/mijolabs/vaultage/watcher"
 )
 
-// envOrDefault returns the value of the environment variable or the default.
+// Returns the value of the environment variable or the default.
 func envOrDefault(key, defaultVal string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
@@ -22,7 +22,7 @@ func envOrDefault(key, defaultVal string) string {
 	return defaultVal
 }
 
-// Watch creates a Cobra command that monitors the Vaultwarden data directory
+// Creates a Cobra command that monitors the Vaultwarden data directory
 // for database changes and triggers encrypted backups using Age encryption.
 func Watch(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
