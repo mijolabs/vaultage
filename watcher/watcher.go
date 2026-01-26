@@ -38,7 +38,7 @@ func Watch(ctx context.Context, cfg Config) error {
 		return backup.Perform(cfg.Config)
 	}
 
-	return runLoop(ctx, watcher, walFilePath, cfg.Debounce, backupFn)
+	return runLoop(ctx, watcher, cfg.Debounce, backupFn)
 }
 
 // logCooldown suppresses repeated log messages within this duration.
@@ -48,7 +48,7 @@ func Watch(ctx context.Context, cfg Config) error {
 const logCooldown = time.Second
 
 // runLoop processes file system events and triggers backups after debounce.
-func runLoop(ctx context.Context, watcher *fsnotify.Watcher, walFilePath string, debounce time.Duration, backupFn func() error) error {
+func runLoop(ctx context.Context, watcher *fsnotify.Watcher, debounce time.Duration, backupFn func() error) error {
 	var debounceTimer *time.Timer
 	var lastLogTime time.Time
 
@@ -77,7 +77,7 @@ func runLoop(ctx context.Context, watcher *fsnotify.Watcher, walFilePath string,
 				return nil
 			}
 
-			if event.Name != walFilePath {
+			if event.Name != WalFileName {
 				continue
 			}
 			if event.Op&(fsnotify.Write|fsnotify.Create) == 0 {
