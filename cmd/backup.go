@@ -6,20 +6,18 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/mijolabs/vaultage/backup"
-	"github.com/mijolabs/vaultage/watcher"
 )
 
-// Creates a Cobra command that monitors the Vaultwarden data directory
-// for database changes and triggers encrypted backups using Age encryption.
-func Watch(ctx context.Context) *cobra.Command {
+// Creates a Cobra command that performs a backup of Vaultwarden data,
+// archives it, and optionally encrypts it
+func Backup(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "watch [data dir]",
-		Short: "Watch for changes and perform backups",
+		Use:   "backup [data dir]",
+		Short: "One-time backup of data directory",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Require data dir path
 			if len(args) < 1 {
@@ -40,7 +38,6 @@ func Watch(ctx context.Context) *cobra.Command {
 			}
 
 			// Get flag values
-			debounce, _ := cmd.Flags().GetDuration("debounce")
 			outputDir, _ := cmd.Flags().GetString("output-dir")
 			excludeAttachments, _ := cmd.Flags().GetBool("exclude-attachments")
 			excludeConfigFile, _ := cmd.Flags().GetBool("exclude-config-file")
@@ -59,28 +56,20 @@ func Watch(ctx context.Context) *cobra.Command {
 				}
 			}
 
-			cfg := watcher.Config{
-				Config: backup.Config{
-					DataDir:            dataDir,
-					OutputDir:          outputDir,
-					ExcludeAttachments: excludeAttachments,
-					ExcludeConfigFile:  excludeConfigFile,
-					WithoutEncryption:  withoutEncryption,
-					AgePassphrase:      agePassphrase,
-					AgeKeyFile:         ageKeyFile,
-				},
-				Debounce: debounce,
+			cfg := backup.Config{
+				DataDir:            dataDir,
+				OutputDir:          outputDir,
+				ExcludeAttachments: excludeAttachments,
+				ExcludeConfigFile:  excludeConfigFile,
+				WithoutEncryption:  withoutEncryption,
+				AgePassphrase:      agePassphrase,
+				AgeKeyFile:         ageKeyFile,
 			}
 
-			return watcher.Watch(ctx, cfg)
+			return backup.Perform(ctx, cfg)
 		},
 	}
 
-	cmd.Flags().Duration(
-		"debounce",
-		10*time.Minute,
-		"trailing quiet period before backup is performed",
-	)
 	cmd.Flags().String(
 		"output-dir",
 		envOrDefault("OUTPUT_DIR", "."),

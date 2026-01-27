@@ -6,6 +6,7 @@ type Config struct {
 	OutputDir          string
 	ExcludeAttachments bool
 	ExcludeConfigFile  bool
+	WithoutEncryption  bool
 	AgePassphrase      string
 	AgeKeyFile         string
 }

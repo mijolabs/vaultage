@@ -35,7 +35,7 @@ func Watch(ctx context.Context, cfg Config) error {
 	}
 
 	backupFn := func() error {
-		return backup.Perform(cfg.Config)
+		return backup.Perform(ctx, cfg.Config)
 	}
 
 	return runLoop(ctx, watcher, cfg.Debounce, backupFn)
