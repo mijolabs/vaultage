@@ -1,4 +1,4 @@
-package crypto
+package backup
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"golang.org/x/term"
 )
 
-func PromptForPassphrase() (string, error) {
+func promptForPassphrase() (string, error) {
 	fd := int(os.Stdin.Fd())
 
 	fmt.Print("Set archive passphrase: ")
@@ -33,7 +33,7 @@ func PromptForPassphrase() (string, error) {
 	return string(bytePassphrase), nil
 }
 
-func EncryptWithPassphrase(data []byte, passphrase string) ([]byte, error) {
+func encryptWithPassphrase(data []byte, passphrase string) ([]byte, error) {
 	recipient, err := age.NewScryptRecipient(passphrase)
 	if err != nil {
 		return nil, err

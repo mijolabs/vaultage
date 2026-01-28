@@ -9,68 +9,16 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/mijolabs/vaultage/crypto"
 )
 
 const (
-	// DBFileName is the name of the Vaultwarden SQLite database file.
-	DbFileName = "db.sqlite3"
-	// AttachmentsDirName is the name of the attachments directory.
-	AttachmentsDirName = "attachments"
-	// ConfigFileName is the name of the Vaultwarden config file.
-	ConfigFileName = "config.json"
+	// The name of the Vaultwarden SQLite database file.
+	dbFileName = "db.sqlite3"
+	// The name of the attachments directory.
+	attachmentsDirName = "attachments"
+	// The name of the Vaultwarden config file.
+	configFileName = "config.json"
 )
-
-func getArchiveEntries(cfg Config) ([]ArchiveEntry, error) {
-	log.Printf("enumerating archive entries...")
-
-	// Backup SQLite database to memory
-	dbPath := filepath.Join(cfg.DataDir, DbFileName)
-	dbData, err := BackupToMemory(dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("backing up database: %w", err)
-	}
-
-	// Collect files to archive
-	archiveEntries := []ArchiveEntry{
-		{
-			Name: DbFileName,
-			Data: dbData,
-			Mode: 0644,
-		},
-	}
-
-	// Add attachments directory if it exists and not excluded
-	if !cfg.ExcludeAttachments {
-		attachmentsPath := filepath.Join(cfg.DataDir, AttachmentsDirName)
-		if info, err := os.Stat(attachmentsPath); err == nil && info.IsDir() {
-			archiveEntries = append(
-				archiveEntries,
-				ArchiveEntry{
-					Name: AttachmentsDirName,
-					Path: attachmentsPath,
-				},
-			)
-		}
-	}
-
-	// Add config.json if it exists and not excluded
-	if !cfg.ExcludeConfigFile {
-		configPath := filepath.Join(cfg.DataDir, ConfigFileName)
-		if _, err := os.Stat(configPath); err == nil {
-			archiveEntries = append(
-				archiveEntries,
-				ArchiveEntry{
-					Name: ConfigFileName,
-					Path: configPath,
-				},
-			)
-		}
-	}
-
-	return archiveEntries, nil
-}
 
 func Perform(ctx context.Context, cfg Config) error {
 	// Ensure output directory exists
@@ -109,13 +57,13 @@ func Perform(ctx context.Context, cfg Config) error {
 	log.Printf("creating encrypted backup: %s", outEncryptedFilePath)
 	passphrase := cfg.AgePassphrase
 	if passphrase == "" {
-		passphrase, err = crypto.PromptForPassphrase()
+		passphrase, err = promptForPassphrase()
 		if err != nil {
 			return err
 		}
 	}
 
-	encryptedArchiveBytes, err := crypto.EncryptWithPassphrase(archiveBytes, passphrase)
+	encryptedArchiveBytes, err := encryptWithPassphrase(archiveBytes, passphrase)
 	if err != nil {
 		return err
 	}
@@ -124,6 +72,56 @@ func Perform(ctx context.Context, cfg Config) error {
 	writeBytesToDisk(outEncryptedFilePath, encryptedArchiveBytes)
 
 	return nil
+}
+
+func getArchiveEntries(cfg Config) ([]ArchiveEntry, error) {
+	log.Printf("enumerating archive entries...")
+
+	// Backup SQLite database to memory
+	dbPath := filepath.Join(cfg.DataDir, dbFileName)
+	dbData, err := BackupToMemory(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("backing up database: %w", err)
+	}
+
+	// Collect files to archive
+	archiveEntries := []ArchiveEntry{
+		{
+			Name: dbFileName,
+			Data: dbData,
+			Mode: 0644,
+		},
+	}
+
+	// Add attachments directory if it exists and not excluded
+	if !cfg.ExcludeAttachments {
+		attachmentsPath := filepath.Join(cfg.DataDir, attachmentsDirName)
+		if info, err := os.Stat(attachmentsPath); err == nil && info.IsDir() {
+			archiveEntries = append(
+				archiveEntries,
+				ArchiveEntry{
+					Name: attachmentsDirName,
+					Path: attachmentsPath,
+				},
+			)
+		}
+	}
+
+	// Add config.json if it exists and not excluded
+	if !cfg.ExcludeConfigFile {
+		configPath := filepath.Join(cfg.DataDir, configFileName)
+		if _, err := os.Stat(configPath); err == nil {
+			archiveEntries = append(
+				archiveEntries,
+				ArchiveEntry{
+					Name: configFileName,
+					Path: configPath,
+				},
+			)
+		}
+	}
+
+	return archiveEntries, nil
 }
 
 func writeBytesToDisk(outputFilePath string, data []byte) error {
