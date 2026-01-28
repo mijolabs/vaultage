@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -16,25 +14,12 @@ import (
 // archives it, and optionally encrypts it
 func Backup(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "backup [data dir]",
 		Short: "One-time backup of data directory",
+		Use:   "backup [data dir]",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Require data dir path
-			if len(args) < 1 {
-				return fmt.Errorf("missing path to vaultwarden data directory")
-			}
-			dataDir := strings.TrimSuffix(args[0], "/")
-
-			// Validate data dir path
-			info, err := os.Stat(dataDir)
+			dataDir, err := validateDataDirFromArgs(args)
 			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					return fmt.Errorf("data directory does not exist: %s", dataDir)
-				}
-				return fmt.Errorf("checking data directory: %w", err)
-			}
-			if !info.IsDir() {
-				return fmt.Errorf("path is not a directory: %s", dataDir)
+				return fmt.Errorf("validating data directory: %w", err)
 			}
 
 			// Get flag values
@@ -45,10 +30,6 @@ func Backup(ctx context.Context) *cobra.Command {
 			agePassphrase, _ := cmd.Flags().GetString("age-passphrase")
 			ageKeyFile, _ := cmd.Flags().GetString("age-key-file")
 
-			// Validate required age options (temporarily disabled until age encryption is implemented)
-			// if agePassphrase == "" && ageKeyFile == "" {
-			// 	return fmt.Errorf("either --age-passphrase or --age-key-file must be provided")
-			// }
 			// Validate mutually exclusive age options
 			if !withoutEncryption {
 				if agePassphrase != "" && ageKeyFile != "" {

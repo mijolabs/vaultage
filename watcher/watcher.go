@@ -15,9 +15,9 @@ import (
 // WalFileName is the SQLite write-ahead log file that indicates database changes.
 const WalFileName = "db.sqlite3-wal"
 
-// Watch monitors the Vaultwarden data directory for changes to the WAL file
+// Monitors the Vaultwarden data directory for changes to the WAL file
 // and triggers backups after the debounce period.
-// It blocks until the context is cancelled.
+// Blocks until the context is cancelled.
 func Watch(ctx context.Context, cfg Config) error {
 	walFilePath := cfg.DataDir + "/" + WalFileName
 
@@ -45,7 +45,7 @@ func Watch(ctx context.Context, cfg Config) error {
 // SQLite WAL operations often trigger multiple fsnotify events in rapid
 // succession (2-3 events within milliseconds). This cooldown prevents
 // noisy logs while still resetting the debounce timer for each event.
-const logCooldown = time.Second
+const logCooldown = 1 * time.Second
 
 // runLoop processes file system events and triggers backups after debounce.
 func runLoop(ctx context.Context, watcher *fsnotify.Watcher, debounce time.Duration, backupFn func() error) error {

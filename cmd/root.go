@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -19,28 +18,20 @@ ____   ____            .__   __
 `
 }
 
-// Returns the value of the environment variable or the default.
-func envOrDefault(key, defaultVal string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return defaultVal
-}
-
 func RootCmd(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vaultage",
 		Short: "Vaultwarden backups with Age encryption",
 	}
 
-	cmd.AddCommand(Backup(ctx))
-	cmd.AddCommand(Watch(ctx))
-
 	originalHelp := cmd.HelpFunc()
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		fmt.Println(banner())
 		originalHelp(cmd, args)
 	})
+
+	cmd.AddCommand(Backup(ctx))
+	cmd.AddCommand(Watch(ctx))
 
 	return cmd
 }
