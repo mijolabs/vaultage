@@ -12,14 +12,14 @@ import (
 func promptForPassphrase() (string, error) {
 	fd := int(os.Stdin.Fd())
 
-	fmt.Print("Set archive passphrase: ")
+	fmt.Print("Set encryption passphrase: ")
 	bytePassphrase, err := term.ReadPassword(fd)
 	fmt.Println()
 	if err != nil {
 		return "", fmt.Errorf("error reading password: %s", err)
 	}
 
-	fmt.Print("Confirm archive passphrase: ")
+	fmt.Print("Confirm encryption passphrase: ")
 	bytePassphraseConfirmation, err := term.ReadPassword(fd)
 	fmt.Println()
 	if err != nil {
