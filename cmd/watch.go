@@ -64,37 +64,37 @@ func Watch(ctx context.Context) *cobra.Command {
 
 	cmd.Flags().Duration(
 		"debounce",
-		10*time.Minute,
+		envDurationOrDefault("VAULTAGE_DEBOUNCE", 10*time.Minute),
 		"trailing quiet period before backup is performed",
 	)
 	cmd.Flags().String(
 		"output-dir",
-		envOrDefault("OUTPUT_DIR", "."),
+		envStringOrDefault("VAULTAGE_OUTPUT_DIR", "."),
 		"directory for backup files",
 	)
 	cmd.Flags().Bool(
 		"exclude-attachments",
-		false,
+		envBoolOrDefault("VAULTAGE_EXCLUDE_ATTACHMENTS", false),
 		"exclude attachments in backup archive",
 	)
 	cmd.Flags().Bool(
 		"exclude-config-file",
-		false,
+		envBoolOrDefault("VAULTAGE_EXCLUDE_CONFIG_FILE", false),
 		"exclude config.json in backup archive",
 	)
 	cmd.Flags().Bool(
 		"without-encryption",
-		false,
+		envBoolOrDefault("VAULTAGE_WITHOUT_ENCRYPTION", false),
 		"disable encryption for backups",
 	)
 	cmd.Flags().String(
 		"age-passphrase",
-		os.Getenv("AGE_PASSPHRASE"),
+		os.Getenv("VAULTAGE_AGE_PASSPHRASE"),
 		"age passphrase for backup encryption",
 	)
 	cmd.Flags().String(
 		"age-key-file",
-		os.Getenv("AGE_KEY_FILE"),
+		os.Getenv("VAULTAGE_AGE_KEY_FILE"),
 		"age key file for backup encryption",
 	)
 
