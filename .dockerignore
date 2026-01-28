@@ -1,0 +1,10 @@
+# Ignore everything by default
+*
+
+# Allow Go module files
+!go.mod
+!go.sum
+
+# Allow Go source files
+!*.go
+!**/*.go
