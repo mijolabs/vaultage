@@ -12,10 +12,13 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -o /vaultage .
 
 
-FROM scratch AS final
+
+
+FROM scratch
 
 COPY --from=builder /vaultage /vaultage
 
+HEALTHCHECK NONE
 USER 65534:65534
 
 ENTRYPOINT ["/vaultage"]
