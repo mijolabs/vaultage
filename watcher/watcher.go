@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -77,7 +78,7 @@ func runLoop(ctx context.Context, watcher *fsnotify.Watcher, debounce time.Durat
 				return nil
 			}
 
-			if event.Name != WalFileName {
+			if !strings.HasSuffix(event.Name, WalFileName) {
 				continue
 			}
 			if event.Op&(fsnotify.Write|fsnotify.Create) == 0 {
