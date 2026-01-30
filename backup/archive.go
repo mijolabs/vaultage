@@ -10,19 +10,19 @@ import (
 	"time"
 )
 
-// ArchiveEntry represents a file to be added to the tar archive.
+// Represents a file to be added to the tar archive.
 type ArchiveEntry struct {
-	// Name is the path within the archive
+	// The path within the archive
 	Name string
 	// Data contains the file contents (for in-memory files)
 	Data []byte
 	// Path is the filesystem path (for on-disk files, mutually exclusive with Data)
 	Path string
-	// Mode is the file permission mode
+	// The file permission mode
 	Mode fs.FileMode
 }
 
-// CreateArchive writes a tar archive to w containing the provided entries.
+// Writes a tar archive to w containing the provided entries.
 // Entries can be either in-memory (Data set) or from disk (Path set).
 func CreateArchive(w io.Writer, entries []ArchiveEntry) error {
 	tw := tar.NewWriter(w)
@@ -37,7 +37,7 @@ func CreateArchive(w io.Writer, entries []ArchiveEntry) error {
 	return nil
 }
 
-// writeEntry writes a single entry to the tar archive.
+// Writes a single entry to the tar archive.
 func writeEntry(tw *tar.Writer, entry ArchiveEntry) error {
 	if entry.Data != nil {
 		return writeMemoryEntry(tw, entry)
@@ -45,7 +45,7 @@ func writeEntry(tw *tar.Writer, entry ArchiveEntry) error {
 	return writeDiskEntry(tw, entry)
 }
 
-// writeMemoryEntry writes an in-memory file to the tar archive.
+// Writes an in-memory file to the tar archive.
 func writeMemoryEntry(tw *tar.Writer, entry ArchiveEntry) error {
 	mode := entry.Mode
 	if mode == 0 {
@@ -70,7 +70,7 @@ func writeMemoryEntry(tw *tar.Writer, entry ArchiveEntry) error {
 	return nil
 }
 
-// writeDiskEntry writes a file from disk to the tar archive.
+// Writes a file from disk to the tar archive.
 // If the path is a directory, it recursively adds all files within it.
 func writeDiskEntry(tw *tar.Writer, entry ArchiveEntry) error {
 	info, err := os.Stat(entry.Path)
@@ -85,7 +85,7 @@ func writeDiskEntry(tw *tar.Writer, entry ArchiveEntry) error {
 	return writeFileEntry(tw, entry, info)
 }
 
-// writeFileEntry writes a regular file from disk to the tar archive.
+// Writes a regular file from disk to the tar archive.
 func writeFileEntry(tw *tar.Writer, entry ArchiveEntry, info fs.FileInfo) error {
 	header, err := tar.FileInfoHeader(info, "")
 	if err != nil {
@@ -110,7 +110,7 @@ func writeFileEntry(tw *tar.Writer, entry ArchiveEntry, info fs.FileInfo) error 
 	return nil
 }
 
-// writeDirEntry recursively writes a directory and its contents to the tar archive.
+// Recursively writes a directory and its contents to the tar archive.
 func writeDirEntry(tw *tar.Writer, entry ArchiveEntry) error {
 	return filepath.WalkDir(entry.Path, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
