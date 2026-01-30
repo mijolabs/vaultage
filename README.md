@@ -44,7 +44,7 @@ vaultage watch /path/to/vaultwarden/data --output-dir /path/to/backups
 
 ### Docker Compose
 
-Add it as a second service in your Vaultwarden `docker-compose.yml` file:
+Add it as a side-car service in your Vaultwarden `docker-compose.yml` file:
 
 ```yaml
 services:
