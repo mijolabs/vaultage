@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -22,65 +21,21 @@ func Backup(ctx context.Context) *cobra.Command {
 				return fmt.Errorf("validating data directory: %w", err)
 			}
 
-			// Get flag values
-			outputDir, _ := cmd.Flags().GetString("output-dir")
-			excludeAttachments, _ := cmd.Flags().GetBool("exclude-attachments")
-			excludeConfigFile, _ := cmd.Flags().GetBool("exclude-config-file")
-			withoutEncryption, _ := cmd.Flags().GetBool("without-encryption")
-			agePassphrase, _ := cmd.Flags().GetString("age-passphrase")
-			ageKeyFile, _ := cmd.Flags().GetString("age-key-file")
+			cfg := resolveBackupFlags(cmd)
+			cfg.DataDir = dataDir
 
 			// Validate mutually exclusive age options
-			if !withoutEncryption {
-				if agePassphrase != "" && ageKeyFile != "" {
+			if !cfg.WithoutEncryption {
+				if cfg.AgePassphrase != "" && cfg.AgeKeyFile != "" {
 					return fmt.Errorf("--age-passphrase and --age-key-file are mutually exclusive")
 				}
-			}
-
-			cfg := backup.Config{
-				DataDir:            dataDir,
-				OutputDir:          outputDir,
-				ExcludeAttachments: excludeAttachments,
-				ExcludeConfigFile:  excludeConfigFile,
-				WithoutEncryption:  withoutEncryption,
-				AgePassphrase:      agePassphrase,
-				AgeKeyFile:         ageKeyFile,
 			}
 
 			return backup.Perform(ctx, cfg)
 		},
 	}
 
-	cmd.Flags().String(
-		"output-dir",
-		envStringOrDefault("VAULTAGE_OUTPUT_DIR", "."),
-		"directory for backup files",
-	)
-	cmd.Flags().Bool(
-		"exclude-attachments",
-		envBoolOrDefault("VAULTAGE_EXCLUDE_ATTACHMENTS", false),
-		"exclude attachments in backup archive",
-	)
-	cmd.Flags().Bool(
-		"exclude-config-file",
-		envBoolOrDefault("VAULTAGE_EXCLUDE_CONFIG_FILE", false),
-		"exclude config.json in backup archive",
-	)
-	cmd.Flags().Bool(
-		"without-encryption",
-		envBoolOrDefault("VAULTAGE_WITHOUT_ENCRYPTION", false),
-		"disable encryption for backups",
-	)
-	cmd.Flags().String(
-		"age-passphrase",
-		os.Getenv("VAULTAGE_AGE_PASSPHRASE"),
-		"age passphrase for backup encryption",
-	)
-	cmd.Flags().String(
-		"age-key-file",
-		os.Getenv("VAULTAGE_AGE_KEY_FILE"),
-		"age key file for backup encryption",
-	)
+	addBackupFlags(cmd)
 
 	return cmd
 }

@@ -1,10 +1,11 @@
 module github.com/mijolabs/vaultage
 
-go 1.25.6
+go 1.26.0
 
 require (
 	filippo.io/age v1.3.1
 	github.com/fsnotify/fsnotify v1.9.0
+	github.com/sethvargo/go-diceware v0.5.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.39.0
 	modernc.org/sqlite v1.44.1
