@@ -59,14 +59,9 @@ func BackupToMemory(dbPath string) ([]byte, error) {
 		// Copy all pages in one step (-1 means copy everything)
 		// This is safe for small databases; for very large databases,
 		// you could use positive values to copy incrementally.
-		done, err := backup.Step(-1)
-		if err != nil {
+		if _, err := backup.Step(-1); err != nil {
 			backup.Finish()
 			return fmt.Errorf("backup step: %w", err)
-		}
-		if done {
-			// Step returned true before we expected - shouldn't happen with -1
-			// but handle gracefully
 		}
 
 		if err := backup.Finish(); err != nil {

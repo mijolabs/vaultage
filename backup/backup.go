@@ -69,9 +69,7 @@ func Perform(ctx context.Context, cfg Config) error {
 	}
 
 	log.Printf("writing encrypted backup: %s (%s)", outEncryptedFilePath, formatSize(int64(len(archiveBytes))))
-	writeBytesToDisk(outEncryptedFilePath, encryptedArchiveBytes)
-
-	return nil
+	return writeBytesToDisk(outEncryptedFilePath, encryptedArchiveBytes)
 }
 
 func getArchiveEntries(cfg Config) ([]ArchiveEntry, error) {
