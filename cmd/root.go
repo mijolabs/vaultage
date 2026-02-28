@@ -3,8 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func banner() string {
@@ -18,6 +20,8 @@ ____   ____            .__   __
 `
 }
 
+const bannerWidth = 56
+
 func RootCmd(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vaultage",
@@ -25,13 +29,18 @@ func RootCmd(ctx context.Context) *cobra.Command {
 	}
 
 	originalHelp := cmd.HelpFunc()
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		fmt.Println(banner())
-		originalHelp(cmd, args)
+	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
+		if !c.HasParent() {
+			if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w >= bannerWidth {
+				fmt.Println(banner())
+			}
+		}
+		originalHelp(c, args)
 	})
 
 	cmd.AddCommand(Backup(ctx))
 	cmd.AddCommand(Watch(ctx))
+	cmd.AddCommand(Generate(ctx))
 
 	return cmd
 }
