@@ -11,6 +11,17 @@ import (
 	"time"
 )
 
+// Config holds the configuration needed for performing backups.
+type Config struct {
+	DataDir            string
+	OutputDir          string
+	ExcludeAttachments bool
+	ExcludeConfigFile  bool
+	WithoutEncryption  bool
+	AgePassphrase      string
+	AgeKeyFile         string
+}
+
 const (
 	// The name of the Vaultwarden SQLite database file.
 	dbFileName = "db.sqlite3"

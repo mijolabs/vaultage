@@ -13,6 +13,12 @@ import (
 	"github.com/mijolabs/vaultage/backup"
 )
 
+// Config holds the configuration needed for the watcher.
+type Config struct {
+	backup.Config
+	Debounce time.Duration
+}
+
 // WalFileName is the SQLite write-ahead log file that indicates database changes.
 const WalFileName = "db.sqlite3-wal"
 
