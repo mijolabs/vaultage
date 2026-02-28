@@ -16,6 +16,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM scratch
 
+LABEL org.opencontainers.image.title="vaultage" \
+      org.opencontainers.image.description="Vaultwarden backups with Age encryption" \
+      org.opencontainers.image.source="https://github.com/mijolabs/vaultage"
+
 COPY --from=builder /vaultage /vaultage
 
 HEALTHCHECK NONE
