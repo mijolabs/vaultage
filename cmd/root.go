@@ -40,7 +40,6 @@ func RootCmd(ctx context.Context) *cobra.Command {
 
 	cmd.AddCommand(Backup(ctx))
 	cmd.AddCommand(Watch(ctx))
-	cmd.AddCommand(Generate(ctx))
 
 	return cmd
 }
