@@ -13,7 +13,7 @@ import (
 // archives it, and optionally encrypts it
 func Backup(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
-		Short: "One-time backup of data directory",
+		Short: "One-shot backup and archive of Vaultwarden data",
 		Use:   "backup [data dir]",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dataDir, err := validateDataDirFromArgs(args)
