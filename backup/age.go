@@ -52,9 +52,5 @@ func encryptWithPassphrase(data []byte, passphrase string) ([]byte, error) {
 		return nil, err
 	}
 
-	for i := range data {
-		data[i] = 0
-	}
-
 	return buf.Bytes(), nil
 }
